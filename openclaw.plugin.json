@@ -1,0 +1,10 @@
+{
+  "id": "ocid",
+  "name": "OC Identity",
+  "description": "Runtime identity store — tracks sessions, channels, and senders for policy enforcement",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
