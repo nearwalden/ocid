@@ -71,3 +71,33 @@ export type SenderSummary = {
   channelId: string;
   sessionKeys: string[];
 };
+
+// ============================================================================
+// Visa types
+// ============================================================================
+
+/**
+ * A time-bounded approval record.
+ *
+ * Key: `sessionId:toolName`
+ * Issued by the policy layer on first approval; checked on every subsequent
+ * before_tool_call for the same (session, tool) pair. Automatically invalid
+ * once `expiresAt` is in the past.
+ */
+export type Visa = {
+  /** The session this visa was issued for. */
+  sessionId: string;
+  /** The tool this visa approves. */
+  toolName: string;
+  /** Epoch ms when the visa was issued. */
+  issuedAt: number;
+  /** Epoch ms when the visa expires. */
+  expiresAt: number;
+  /** Optional: the agent run that triggered the original policy check. */
+  runId?: string;
+};
+
+/** Result of a visa check. */
+export type VisaCheckResult =
+  | { valid: true; visa: Visa }
+  | { valid: false; reason: "absent" | "expired" };

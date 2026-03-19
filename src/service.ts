@@ -1,9 +1,11 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { IdentityStore } from "./store.js";
+import { VisaService } from "./visa.js";
 
-// Module-level singleton — shared across the plugin's register() call and
-// any future consumers that import getIdentityStore().
+// Module-level singletons — shared across the plugin's register() call and
+// any future consumers that import getIdentityStore() / getVisaService().
 let activeStore: IdentityStore | null = null;
+let activeVisas: VisaService | null = null;
 
 /**
  * Returns the active identity store for this gateway lifetime.
@@ -15,23 +17,34 @@ export function getIdentityStore(): IdentityStore | null {
 }
 
 /**
+ * Returns the active visa service for this gateway lifetime.
+ * Returns null if the service hasn't started yet.
+ */
+export function getVisaService(): VisaService | null {
+  return activeVisas;
+}
+
+/**
  * Wires up all lifecycle hooks and returns a service object for registerService().
  * Hooks are registered immediately in register(); the service start/stop only
- * manages the store singleton lifetime.
+ * manages the store/visa singleton lifetimes.
  */
 export function createIdentityService(api: OpenClawPluginApi): void {
-  // ── Service: owns the store lifetime ──────────────────────────────────────
-  // Registered first so the store is ready before gateway_start fires.
+  // ── Service: owns the store and visa lifetime ──────────────────────────────
+  // Registered first so both are ready before gateway_start fires.
   api.registerService({
     id: "ocid",
     async start(ctx) {
       activeStore = new IdentityStore();
-      ctx.logger.info("[ocid] identity store initialized");
+      activeVisas = new VisaService();
+      ctx.logger.info("[ocid] identity store and visa service initialized");
     },
     async stop(ctx) {
-      const count = activeStore?.size ?? 0;
+      const sessions = activeStore?.size ?? 0;
+      const visas = activeVisas?.size ?? 0;
       activeStore = null;
-      ctx.logger.info(`[ocid] identity store cleared (${count} sessions)`);
+      activeVisas = null;
+      ctx.logger.info(`[ocid] cleared (${sessions} sessions, ${visas} visas)`);
     },
   });
 
@@ -75,6 +88,8 @@ export function createIdentityService(api: OpenClawPluginApi): void {
 
   // ── Hook: before_tool_call ─────────────────────────────────────────────────
   // Fires before every tool call. Append to the session's tool call log.
+  // Visa checking happens in a policy plugin that imports getVisaService();
+  // this hook is observe-only here.
   api.on("before_tool_call", (event, ctx) => {
     activeStore?.onToolCall({
       sessionKey: ctx.sessionKey,
@@ -83,22 +98,31 @@ export function createIdentityService(api: OpenClawPluginApi): void {
       runId: event.runId ?? ctx.runId,
       toolCallId: event.toolCallId ?? ctx.toolCallId,
     });
-    // Return nothing — this hook is observe-only; blocking happens elsewhere.
   });
 
   // ── Hook: session_end ──────────────────────────────────────────────────────
-  // Fires when a session finishes. Stamps the end time; record is kept.
+  // Fires when a session finishes. Stamps the end time on the identity record
+  // and revokes all visas for the session — they're no longer needed.
   api.on("session_end", (event, ctx) => {
+    const sessionId = event.sessionId ?? ctx.sessionId;
+
     activeStore?.onSessionEnd({
       sessionKey: event.sessionKey ?? ctx.sessionKey,
-      sessionId: event.sessionId,
+      sessionId,
       durationMs: event.durationMs,
     });
+
+    if (sessionId) {
+      const revoked = activeVisas?.revokeSession(sessionId) ?? 0;
+      if (revoked > 0) {
+        api.logger.debug(`[ocid] revoked ${revoked} visa(s) for ended session ${sessionId}`);
+      }
+    }
   });
 
   // ── Hook: gateway_start ────────────────────────────────────────────────────
-  // Log what the registry looks like at startup — useful for debugging.
+  // Log confirmation once the gateway is open for traffic.
   api.on("gateway_start", ({ port }) => {
-    api.logger.info(`[ocid] gateway up on port ${port}, identity store ready`);
+    api.logger.info(`[ocid] gateway up on port ${port}, identity store and visa service ready`);
   });
 }
