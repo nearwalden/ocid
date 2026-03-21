@@ -1,13 +1,15 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { createIdentityService } from "./src/service.js";
 
-export { getIdentityStore, getVisaService } from "./src/service.js";
+export { getIdentityStore, getVisaService, getUserInfoStore } from "./src/service.js";
+export { UserInfoStore } from "./src/store.js";
 export { DEFAULT_VISA_TTL_MS } from "./src/visa.js";
 export type {
   SessionRecord,
   SessionSnapshot,
   SenderSummary,
   ToolCallRecord,
+  UserInfoSnapshot,
   Visa,
   VisaCheckResult,
 } from "./src/types.js";

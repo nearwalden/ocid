@@ -1,11 +1,12 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import { IdentityStore } from "./store.js";
+import { IdentityStore, UserInfoStore } from "./store.js";
 import { VisaService } from "./visa.js";
 
 // Module-level singletons — shared across the plugin's register() call and
 // any future consumers that import getIdentityStore() / getVisaService().
 let activeStore: IdentityStore | null = null;
 let activeVisas: VisaService | null = null;
+let activeUserInfo: UserInfoStore | null = null;
 
 /**
  * Returns the active identity store for this gateway lifetime.
@@ -25,6 +26,14 @@ export function getVisaService(): VisaService | null {
 }
 
 /**
+ * Returns the active user info store for this gateway lifetime.
+ * Returns null if the service hasn't started yet.
+ */
+export function getUserInfoStore(): UserInfoStore | null {
+  return activeUserInfo;
+}
+
+/**
  * Wires up all lifecycle hooks and returns a service object for registerService().
  * Hooks are registered immediately in register(); the service start/stop only
  * manages the store/visa singleton lifetimes.
@@ -37,14 +46,17 @@ export function createIdentityService(api: OpenClawPluginApi): void {
     async start(ctx) {
       activeStore = new IdentityStore();
       activeVisas = new VisaService();
-      ctx.logger.info("[ocid] identity store and visa service initialized");
+      activeUserInfo = new UserInfoStore();
+      ctx.logger.info("[ocid] identity store, visa service, and user info store initialized");
     },
     async stop(ctx) {
       const sessions = activeStore?.size ?? 0;
       const visas = activeVisas?.size ?? 0;
+      const users = activeUserInfo?.size ?? 0;
       activeStore = null;
       activeVisas = null;
-      ctx.logger.info(`[ocid] cleared (${sessions} sessions, ${visas} visas)`);
+      activeUserInfo = null;
+      ctx.logger.info(`[ocid] cleared (${sessions} sessions, ${visas} visas, ${users} users)`);
     },
   });
 

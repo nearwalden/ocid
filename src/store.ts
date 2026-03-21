@@ -1,4 +1,4 @@
-import type { SenderSummary, SessionRecord, SessionSnapshot, ToolCallRecord } from "./types.js";
+import type { SenderSummary, SessionRecord, SessionSnapshot, ToolCallRecord, UserInfoSnapshot } from "./types.js";
 
 // ============================================================================
 // IdentityStore
@@ -221,5 +221,102 @@ export class IdentityStore {
       this.senderIndex.set(indexKey, set);
     }
     set.add(sessionKey);
+  }
+}
+
+// ============================================================================
+// UserInfoStore
+//
+// In-memory key-value metadata per user, keyed by a user identifier
+// (typically "channelId:senderId"). Not persisted — reloaded on startup by
+// whatever populates the data.
+// ============================================================================
+
+export class UserInfoStore {
+  // userId → (key → value)
+  private readonly users = new Map<string, Map<string, string>>();
+
+  // ── Composite key helper ───────────────────────────────────────────────────
+
+  /** Builds a canonical user key from channel + sender. */
+  static userKey(channelId: string, senderId: string): string {
+    return `${channelId}:${senderId}`;
+  }
+
+  // ── Writes ─────────────────────────────────────────────────────────────────
+
+  /** Set a single key-value pair for a user. Creates the user entry if needed. */
+  set(userId: string, key: string, value: string): void {
+    let kv = this.users.get(userId);
+    if (!kv) {
+      kv = new Map();
+      this.users.set(userId, kv);
+    }
+    kv.set(key, value);
+  }
+
+  /** Set multiple key-value pairs for a user at once. */
+  setMany(userId: string, entries: Record<string, string>): void {
+    let kv = this.users.get(userId);
+    if (!kv) {
+      kv = new Map();
+      this.users.set(userId, kv);
+    }
+    for (const [k, v] of Object.entries(entries)) {
+      kv.set(k, v);
+    }
+  }
+
+  /** Delete a single key for a user. Returns true if the key existed. */
+  delete(userId: string, key: string): boolean {
+    const kv = this.users.get(userId);
+    if (!kv) return false;
+    const deleted = kv.delete(key);
+    if (kv.size === 0) this.users.delete(userId);
+    return deleted;
+  }
+
+  /** Remove a user and all their key-value pairs. Returns true if the user existed. */
+  deleteUser(userId: string): boolean {
+    return this.users.delete(userId);
+  }
+
+  /** Remove all users and their data. */
+  clear(): void {
+    this.users.clear();
+  }
+
+  // ── Reads ──────────────────────────────────────────────────────────────────
+
+  /** Get a single value for a user, or undefined if not set. */
+  get(userId: string, key: string): string | undefined {
+    return this.users.get(userId)?.get(key);
+  }
+
+  /** Get all key-value pairs for a user as a plain object snapshot. */
+  getAll(userId: string): UserInfoSnapshot | undefined {
+    const kv = this.users.get(userId);
+    if (!kv) return undefined;
+    return Object.fromEntries(kv) as UserInfoSnapshot;
+  }
+
+  /** Check whether a user has any stored info. */
+  hasUser(userId: string): boolean {
+    return this.users.has(userId);
+  }
+
+  /** Check whether a specific key exists for a user. */
+  has(userId: string, key: string): boolean {
+    return this.users.get(userId)?.has(key) ?? false;
+  }
+
+  /** Returns all known user IDs. */
+  allUserIds(): string[] {
+    return [...this.users.keys()];
+  }
+
+  /** Total number of users in the store. */
+  get size(): number {
+    return this.users.size;
   }
 }

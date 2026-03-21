@@ -73,6 +73,16 @@ export type SenderSummary = {
 };
 
 // ============================================================================
+// User info types
+// ============================================================================
+
+/**
+ * A read-only snapshot of all key-value pairs stored for a single user.
+ * The user is identified by a composite key (typically `channelId:senderId`).
+ */
+export type UserInfoSnapshot = Readonly<Record<string, string>>;
+
+// ============================================================================
 // Visa types
 // ============================================================================
 
