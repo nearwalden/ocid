@@ -29,7 +29,7 @@ const plugin = {
       description: "Print all sessions in the identity store",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       handler: (ctx: any) => {
-        const { getIdentityStore } = await import("./src/service.js");
+        const { getIdentityStore } = import("./src/service.js");
         const store = getIdentityStore();
         if (!store) {
           ctx.reply("ocid identity store is not running.");
@@ -53,7 +53,7 @@ const plugin = {
       description: "Revoke all active visas (forces fresh policy checks on next tool call)",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       handler: (ctx: any) => {
-        const { getVisaService } = await import("./src/service.js");
+        const { getVisaService } = import("./src/service.js");
         const visas = getVisaService();
         if (!visas) {
           ctx.reply("ocid visa service is not running.");
