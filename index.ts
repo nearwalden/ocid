@@ -28,7 +28,7 @@ const plugin = {
       name: "ocid-dump",
       description: "Print all sessions in the identity store",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      async handler(ctx: any) {
+      handler: (ctx: any) => {
         const { getIdentityStore } = await import("./src/service.js");
         const store = getIdentityStore();
         if (!store) {
@@ -52,7 +52,7 @@ const plugin = {
       name: "ocid-revoke-all",
       description: "Revoke all active visas (forces fresh policy checks on next tool call)",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      async handler(ctx: any) {
+      handler: (ctx: any) => {
         const { getVisaService } = await import("./src/service.js");
         const visas = getVisaService();
         if (!visas) {
